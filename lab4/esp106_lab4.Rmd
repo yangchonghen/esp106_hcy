@@ -30,7 +30,7 @@ num_code=c(8443970, 8518750, 8574680, 8665530, 8723214, 8775296)
 df_cities=data.frame(cities, num_code)
 
 csvfile=list.files(full.names = TRUE)
-csvfile
+csvfile #remove the .rmd and tidedata.csv from folder
 
 fulldata=read.csv(csvfile[1])
 fulldata$city=df_cities$cities[1]
