@@ -1,9 +1,15 @@
 ---
 title: "ESP106-Lab4"
-author: "Fran M"
-date: "January 20, 2022"
+author: "Henry C. Yang"
+date: "January 31, 2024"
 output: html_document
+
 ---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("lab4/")
+```
 
 ## Lab 4
 
@@ -23,25 +29,25 @@ In this lab we will look at daily tide data downloaded from NOAA's Tides and Cur
 2a. Use a for-loop to read in the csv files and bind them together into a single data frame. Add a column to the data frame giving the name of the city the data is from.
 
 ```{r}
-
+getwd()
 
 cities= c("Boston", "New York", "Balitimore","Charleston", "Miami", "Corpus Christi")
 num_code=c(8443970, 8518750, 8574680, 8665530, 8723214, 8775296)
 df_cities=data.frame(cities, num_code)
 
-csvfile=list.files(full.names = TRUE)
-csvfile #remove the .rmd and tidedata.csv from folder
+csvfile=list.files("lab4/",full.names = TRUE)
+csvfile #giving up on integrating separate API data sets. 
 
-fulldata=read.csv(csvfile[1])
-fulldata$city=df_cities$cities[1]
+fulldata =read.csv(csvfile[1])
+fulldata$code=df_cities$cities[1]
 
-for(i in 2:length(csvfile)){
+for(i in 2: length(csvfile)){
   temp =read.csv(csvfile[i])
-  temp$city= df_cities$cities[i]
-  fulldata=rbind(fulldata,temp)
+  temp$code = df_cities$cities[i]
+  fulldata= rbind(fulldata, temp)
 }
 
-
+fulldata
 ```
 ```
 #Hint: you can use list.files() to get a vector of all the file names in a directory. Setting full.names=TRUE in the list.files() function will give you the full path name that can be used by read.csv
@@ -52,7 +58,9 @@ for(i in 2:length(csvfile)){
 
 ```
 
-2b. Take a look at your data frame - is this in a tidy format?
+2b. Take a look at your data frame - is this in a tidy format? 
+
+Yes.
 
 We are going to examine the question of whether these gauges show evidence of rising sea levels. One of the first things we have to deal with is the issue of dates. 
 
@@ -62,15 +70,16 @@ Your data frame right now has one column with a year and one with the month. We 
 
 ```{r}
 #Hint: Use paste0() to combine data and characters (i.e. the required separators "-")
-
+install.packages("lubridate")
+library(lubridate)
+fulldata$Date = ymd(paste0(fulldata$Year, "-", fulldata$Month, "-01"))
 ```
 
 3b. Use the ymd() (i.e. year-month-day) function from the lubridate package to convert your new date column to a date object in R
 
 ```{r}
 library(lubridate) #this is a great package for handling date and time objects in R. If you don't have it already install it using install.packages("lubridate")
-
-
+#refer to 3a for code.
 ```
 
 Now lets use ggplot to make some cool graphs of this data using ggplot.
@@ -82,7 +91,14 @@ Make sure to add proper axis labes and units (using +labs(x="",y=""))
  * Add a single best-fit line through the full data set using geom_smooth(method="lm") - note that by default ggplot will fit one best fit line for each city. To override this specify the aestetic mapping (aes()) again within the geom_smooth function and add the argument inherit.aes=FALSE
  
 ```{r, message=FALSE, warning=FALSE}
+install.packages("ggplot2")
 library(ggplot2) #if you don't already have ggplot2 then install it using install.packages("ggplot2")
+a= ggplot(data= fulldata, aes(x= Date, y=MHHW, col= code))+
+geom_line()+
+geom_smooth(method="lm", color= "black")+
+labs(x= "Date", y= "Mean Higher High Water")
+
+a
 
 ```
 
@@ -90,7 +106,14 @@ library(ggplot2) #if you don't already have ggplot2 then install it using instal
 
 ```{r echo=FALSE, message=FALSE}
 #Hint: you should only need minor modification of the code from question 4 to make this plot
+a2= ggplot(data= fulldata, aes(x= Date, y=MHHW, col= code))+
+geom_line()+
+facet_wrap(~code)+
+geom_smooth(method="lm", color= "black")+
+labs(x= "Date", y= "Mean Higher High Water")
 
+
+a2
 ```
 
 ### Part 2 - Wednesday Jan 31st 
@@ -100,7 +123,10 @@ In this part of the lab we will identify some outliers, and practice running reg
 6. Make a box plot showing the distribution of the highest tides each month ("Highest" column in the NOAA data) . (Ideally practice using ggplot by using geom_boxplot() - put the city on the x axis and Highest on the y. But this can also be done in base R). See the example plot on Canvas (Plot 3)
 
 ```{r}
-
+ggplot(data= fulldata, aes(x=code, y=Highest, color= code))+
+geom_boxplot()+
+labs(color="Legend", x="Cities")
+    
 ```
 
 Notice the very extreme value in New York City - a major outlier both within New York and compared to all the other cities
@@ -109,10 +135,15 @@ Notice the very extreme value in New York City - a major outlier both within New
 
 ```{r}
 #Hint: The which.max() function might be useful here
-
+outliers= which.max(fulldata$Highest)
+outliers
+outliers_row = fulldata[outliers,]
+print(outliers_row)
 ```
 
 7b. What month and year did this outlier event occur in? What meteorological event happened in New York in that month that probably caused this outlier event? (Feel free to use Google - I don't expect you to know this off hand)
+
+It happened in the of October in 2012. It was Hurricane Sandy.
 
 Finally, we will fit a linear model to estimate the rate of sea-level rise across these 6 cities.
 
@@ -120,14 +151,22 @@ Finally, we will fit a linear model to estimate the rate of sea-level rise acros
 
 ```{r}
 #Hint: the forumla in your lm() function is of the form y~x where y here is MHHW and x is your date column
+lm_data = lm(MHHW~Date, data=fulldata)
+d= summary(lm_data)
 
 ```
 
 8b. Give the estimated coefficient of the date column. Is it statistically significant (i.e. has a p-value less than 0.05)?
 
+The three stars means and lower value than 0.05 means it's statistically significant.
+
 This coefficient gives us the average increase in high tide levels each day, across all six cities, for this ten year time frame (i.e. the units of the coefficient are in m per day).
 
 8c. Using your estimated coefficient, estimate the mean increase in sea-level over the 10 year time frame from 2011-2020.
+```{r}
+365*10*coef(lm_data)[2]
+```
+The amount of height change of the sea level over this 10-yr span is: 0.09971803 meters high.
 
 Upload your .Rmd file and you knitted file with the answers and plots to Canvas
 
