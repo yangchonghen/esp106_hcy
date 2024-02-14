@@ -1,0 +1,137 @@
+---
+title: "Lab 6"
+author: "Henry C. Yang"
+date: "2/14/2024"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this lab we will use some GPS tracking data for Blue Whales in the eastern North Pacific, downloaded from Movebank <https://www.movebank.org> which has lots of wildlife tracking data. We will make some cool maps and overlay polygons of Marine Protected Areas off the California coast to understand how whales move into and out of MPAs.
+
+We will need the ggplot2, sf, rnaturalearth, rnaturalearthdata and viridis packages
+
+1. Use st_read to read in the datapoints for the Blue Whale migration data (poinsts.shp file). This is a set of GPS location points for blue whales tagged in the eastern north Pacific. Identifiers for individual whales are given in the ind_ident column. How many individual whales are tracked in this dataset?
+
+There are 141 uniquely indentified whales in this dataset.
+```{r}
+#install.packages("ggplot2")
+#install.packages("sf")
+#install.packages("rnaturalearth")
+#install.packages("rnaturalearthdata")
+#install.packages("viridis")
+
+getwd()
+list.files()
+fp_BWMD = "E:/ucd_winter_2024/ESP_106_001/labs/lab6/BWMD/points.shp"
+fp_MPAS = "E:/ucd_winter_2024/ESP_106_001/labs/lab6/MPA/mpas.shp"
+library(ggplot2)
+library(sf)
+library(rnaturalearth)
+library(viridis)
+
+bwmd_data = st_read(fp_BWMD)
+#head(bwmd_data)
+length(unique(bwmd_data$ind_ident))
+```
+
+2a. The package rnaturalearth and rnaturalearthdata have lots of useful spatial data and functions for interacting with it. Load these packages and use the ne_countries() function to get a country map of north america (contient="North America") at medium resolution (scale argument) as an sf object
+
+```{r}
+#packages are already installed in the previous r code section.
+north_A = ne_countries(continent= "North America", scale ="medium", returnclass = "sf")
+#print(north_A) #this is all data; not a plot.
+```
+
+2b. Use the identical() function to test whether the coordinate reference system (crs) is the same for the GPS location points and the north america map. If it is not, use st_transform() to transform the north america map to the same crs as the GPS points. If necessary, use the identical() function again to check that the crs of the two data-sets are the same.
+
+The CRS data for my Blue Whale Migration Data(bwmd_data) and my North America polygon data(north_A) are the same.
+
+```{r}
+identical(st_crs(bwmd_data), st_crs(north_A))
+```
+
+3. Use ggplot2 to make a plot showing GPS location points for each whale in a different color. Add the west coast of North America for reference. Set the limits of the plot to the extent of the whale migration data. Plot 1 on canvas shows you the plot you are aiming for here.
+
+```{r}
+#Hint 1: use st_bbox() to get the extent (or bounding box) of a spatial dataset and use this to define the limits of the plot using coord_sf()
+
+?coord_sf()
+
+bw_bbox= st_bbox(bwmd_data)
+#bw_bbox #test print of the boundaries.
+
+ggplot(data= north_A)+
+  geom_sf()+
+  geom_point(data= bwmd_data, aes(x=long, y=lat, color = ind_ident), show.legend=FALSE)+
+  coord_sf(xlim=bw_bbox[c(1,3)], ylim=bw_bbox[c(2,4)])
+
+#Hint 2: ggplot will want to show a color legend for each of the whale ids but this is not very useful. You can suppress this using the show.legend=FALSE argument
+
+#Hint 3: geom_sf() can be used to plot simple feature geometries like the north america polygons
+
+```
+
+4. The folder MPAs has a shapefile in it with polygons for Marine Protected Areas within the United States. I created this file based on polygons for all protected areas in the US, which came from <https://www.protectedplanet.net>. Read in the MPA shapefile and transform the crs to match that of the whale dataset. 
+
+```{r}
+mpas_data= st_read(fp_MPAS)
+#st_crs(bwmd_data) #4326
+#st_crs(mpas_data) #4326
+```
+
+5. Now we will zoom into just the US west coast. You can use the following lognitude and latitude coordinates: xmin=-126.5, xmax=-116, ymin=32, ymax=40 as a new bounding box. Get just the MPAs on the US west coast by cropping the MPA dataset to this bounding box
+
+```{r}
+#Hint: check out the st_crop() function
+sf_use_s2(FALSE)
+new_bounds =st_bbox(c(xmin= -126.5, xmax= -116, ymin= 32, ymax=40))
+mpas_geometry= st_sf(mpas_data$geometry)
+cropped_mpas= st_crop(mpas_geometry, new_bounds)
+cropped_mpas=st_make_valid(cropped_mpas)
+
+#ggplot(data = cropped_mpas)+
+  #geom_sf()
+```
+
+6. Find what fraction of blue whales in the dataset spend at least some time in one of these west coast MPAs
+
+84% of the blue whales in the dataset spend at some time in these west coast MPAs.
+
+```{r}
+wc_bbox= st_bbox(cropped_mpas)
+#wc_bbox
+wc_filtered = st_intersection(bwmd_data, cropped_mpas)
+#wc_filtered
+
+bw_fraction=length(unique(wc_filtered$ind_ident))/length(unique(bwmd_data$ind_ident))
+bw_fraction
+```
+
+**STRETCH GOAL:** Use the timestamps in the GPS data to calculate the fraction of time each whale spends within MPAs on the west coast and display that information as a histogram
+
+```{r}
+#Hint: I haven't done this yet, but if you wanted to have a go at it, I would start by adding a column to the full GPS data indicating whether or not that data point is inside an MPA. Then loop through each whale, make sure the GPS points for that whale are ordered by time, and add up the total time the whale spends within MPAs by differencing the time-stamps. Be careful to account for whales going into and out of MPAs (i.e the time spend within MPAs is probably not continuous)
+
+
+
+```
+
+7. Now we will make a map of blue whale density along the California coast and overlay the west coast MPAs. Use ggplot to create another map of the blue whale data, but crop to the smaller extent (given in question 5). Rather than plotting the point data, use stat_density_2d() to plot a smoothed out, continuous map of whale locations. Add the north american contient and the west coast MPA polygons. Plot 2 on Canvas shows you the plot you are aiming for.
+
+```{r}
+#Hint: add data from stat_density_2d() directly to the plot using fill=after_stat(density) within the aes argument in that function. 
+ggplot(bwmd_data, aes(x=long, y=lat))+
+  stat_density_2d(aes(fill = after_stat(density)), geom="raster", contour=FALSE, n= 200)+
+  scale_fill_viridis()+
+  geom_sf(data=north_A, inherit.aes = FALSE)+
+  coord_sf(xlim=c(-126.5, -116), ylim=c(32, 40))
+  
+#Hint2: by default ggplot will want to add countour lines. To show the data as colors instead, use geom="raster" and contour=FALSE in the stat_density_2d() function
+
+#Hint3: in the example on canvas I used the viridis color scale using scale_fill_viridis() after loading the viridis package. You are welcome to use different color scales though.
+
+# i learned that for every layer you want you need to dictate the aes per layer.
+```
