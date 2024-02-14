@@ -127,6 +127,7 @@ ggplot(bwmd_data, aes(x=long, y=lat))+
   stat_density_2d(aes(fill = after_stat(density)), geom="raster", contour=FALSE, n= 200)+
   scale_fill_viridis()+
   geom_sf(data=north_A, inherit.aes = FALSE)+
+  geom_sf(data=mpas_geometry, fill= NA, color= "red", inherit.aes = FALSE)+
   coord_sf(xlim=c(-126.5, -116), ylim=c(32, 40))
   
 #Hint2: by default ggplot will want to add countour lines. To show the data as colors instead, use geom="raster" and contour=FALSE in the stat_density_2d() function
